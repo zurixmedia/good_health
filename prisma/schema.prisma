@@ -1,0 +1,357 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  PATIENT
+  DOCTOR
+  ADMIN
+}
+
+enum MembershipStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  SUSPENDED
+}
+
+enum DoctorVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum AppointmentType {
+  PHYSICAL
+  VIRTUAL
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum ConsultationStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  MISSED
+}
+
+enum NotificationType {
+  APPOINTMENT
+  CONSULTATION
+  MEMBERSHIP
+  SYSTEM
+}
+
+model User {
+  id              String   @id @default(cuid())
+  clerkId         String   @unique
+  email           String   @unique
+  firstName       String
+  lastName        String
+  phoneNumber     String?
+  role            UserRole
+  profileImageUrl String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patientProfile PatientProfile?
+  doctorProfile  DoctorProfile?
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  fileUploads    FileUpload[]
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model PatientProfile {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  dateOfBirth           DateTime? @db.Date
+  gender                String?
+  address               String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  bloodGroup            String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user                    User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  membershipSubscriptions MembershipSubscription[]
+  appointments            Appointment[]
+  reviews                 Review[]
+
+  @@index([userId])
+}
+
+model DoctorProfile {
+  id                          String                   @id @default(cuid())
+  userId                      String                   @unique
+  specializationId            String?
+  verificationStatus          DoctorVerificationStatus @default(PENDING)
+  licenseNumber               String?
+  yearsOfExperience           Int?
+  bio                         String?
+  consultationFee             Decimal?                 @db.Decimal(10, 2)
+  supportsVirtualConsultation Boolean                  @default(false)
+  profileCompleted            Boolean                  @default(false)
+  verificationDocumentUrl     String?
+  createdAt                   DateTime                 @default(now())
+  updatedAt                   DateTime                 @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialization    Specialization?    @relation(fields: [specializationId], references: [id], onDelete: SetNull)
+  doctorHospitals   DoctorHospital[]
+  availabilityRules AvailabilityRule[]
+  appointments      Appointment[]
+  reviews           Review[]
+
+  @@index([specializationId])
+  @@index([verificationStatus])
+  @@index([supportsVirtualConsultation])
+}
+
+model Specialization {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  icon        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  doctors DoctorProfile[]
+}
+
+model Hospital {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  address     String
+  city        String
+  state       String
+  country     String
+  phoneNumber String?
+  email       String?
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  doctorHospitals DoctorHospital[]
+  appointments    Appointment[]
+
+  @@index([city])
+  @@index([state])
+  @@index([country])
+  @@index([isActive])
+}
+
+model DoctorHospital {
+  id         String   @id @default(cuid())
+  doctorId   String
+  hospitalId String
+  createdAt  DateTime @default(now())
+
+  doctor   DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  hospital Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, hospitalId])
+  @@index([doctorId])
+  @@index([hospitalId])
+}
+
+model MembershipPlan {
+  id                          String   @id @default(cuid())
+  name                        String   @unique
+  description                 String?
+  monthlyPrice                Decimal  @db.Decimal(10, 2)
+  yearlyPrice                 Decimal? @db.Decimal(10, 2)
+  consultationLimit           Int?
+  supportsVirtualConsultation Boolean  @default(false)
+  isActive                    Boolean  @default(true)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  membershipSubscriptions MembershipSubscription[]
+
+  @@index([isActive])
+  @@index([supportsVirtualConsultation])
+}
+
+model MembershipSubscription {
+  id               String           @id @default(cuid())
+  patientId        String
+  membershipPlanId String
+  status           MembershipStatus @default(ACTIVE)
+  startDate        DateTime
+  endDate          DateTime
+  autoRenew        Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  patient        PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  membershipPlan MembershipPlan @relation(fields: [membershipPlanId], references: [id], onDelete: Restrict)
+
+  @@index([patientId])
+  @@index([membershipPlanId])
+  @@index([status])
+  @@index([endDate])
+  @@index([patientId, status])
+}
+
+model AvailabilityRule {
+  id        String   @id @default(cuid())
+  doctorId  String
+  dayOfWeek Int
+  startTime DateTime @db.Time(6)
+  endTime   DateTime @db.Time(6)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+  @@index([dayOfWeek])
+  @@index([isActive])
+  @@index([doctorId, dayOfWeek, isActive])
+}
+
+model Appointment {
+  id                   String            @id @default(cuid())
+  patientId            String
+  doctorId             String
+  hospitalId           String?
+  appointmentType      AppointmentType
+  appointmentStatus    AppointmentStatus @default(PENDING)
+  appointmentDate      DateTime          @db.Date
+  appointmentStartTime DateTime          @db.Time(6)
+  appointmentEndTime   DateTime          @db.Time(6)
+  reasonForVisit       String
+  notes                String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  patient      PatientProfile @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  doctor       DoctorProfile  @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  hospital     Hospital?      @relation(fields: [hospitalId], references: [id], onDelete: Restrict)
+  consultation Consultation?
+  review       Review?
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([hospitalId])
+  @@index([appointmentType])
+  @@index([appointmentStatus])
+  @@index([appointmentDate])
+  @@index([patientId, appointmentDate])
+  @@index([doctorId, appointmentDate])
+  @@index([doctorId, appointmentDate, appointmentStartTime, appointmentEndTime])
+}
+
+model Consultation {
+  id               String             @id @default(cuid())
+  appointmentId    String             @unique
+  status           ConsultationStatus @default(SCHEDULED)
+  meetingProvider  String
+  meetingRoomId    String
+  meetingUrl       String
+  symptoms         String?
+  diagnosis        String?
+  recommendations  String?
+  followUpRequired Boolean            @default(false)
+  followUpNotes    String?
+  startedAt        DateTime?
+  endedAt          DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([meetingProvider])
+  @@index([meetingRoomId])
+}
+
+model Review {
+  id            String   @id @default(cuid())
+  patientId     String
+  doctorId      String
+  appointmentId String   @unique
+  rating        Int
+  comment       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  patient     PatientProfile @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor      DoctorProfile  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  appointment Appointment    @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([rating])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([userId, isRead])
+}
+
+model FileUpload {
+  id               String   @id @default(cuid())
+  uploadedByUserId String
+  fileName         String
+  fileType         String
+  fileUrl          String
+  createdAt        DateTime @default(now())
+
+  uploadedBy User @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([uploadedByUserId])
+  @@index([fileType])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+}
