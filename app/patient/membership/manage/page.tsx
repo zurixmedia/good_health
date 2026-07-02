@@ -40,10 +40,9 @@ type ActiveMembership = Awaited<ReturnType<typeof getPatientActiveMembership>>;
 type MembershipHistoryItem = Awaited<ReturnType<typeof getPatientMemberships>>[number];
 
 export default function MembershipManagementPage() {
-  const { user, isLoaded } = useUser();
+  const { isLoaded } = useUser();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const userId = user?.id;
 
   const [activeMembership, setActiveMembership] =
     React.useState<ActiveMembership>(null);
@@ -53,27 +52,28 @@ export default function MembershipManagementPage() {
   const [loading, setLoading] = React.useState(false);
   const isInitialLoading = !isLoaded || loading;
 
+  // The server actions resolve the patient identity from the session, so no
+  // user id is threaded through the client.
+  const reload = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      const [active, all] = await Promise.all([
+        getPatientActiveMembership(),
+        getPatientMemberships(),
+      ]);
+      setActiveMembership(active);
+      setAllMemberships(all);
+    } catch (error) {
+      console.error("Failed to load memberships:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   React.useEffect(() => {
-    if (!userId) {
-      return;
-    }
-
-    async function loadMemberships(currentUserId: string) {
-      try {
-        setLoading(true);
-        const active = await getPatientActiveMembership(currentUserId);
-        const all = await getPatientMemberships(currentUserId);
-        setActiveMembership(active);
-        setAllMemberships(all);
-      } catch (error) {
-        console.error("Failed to load memberships:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadMemberships(userId);
-  }, [userId]);
+    if (!isLoaded) return;
+    void reload();
+  }, [isLoaded, reload]);
 
   const handleCancel = (subscriptionId: string) => {
     if (!confirm("Are you sure you want to cancel your membership?")) return;
@@ -81,14 +81,7 @@ export default function MembershipManagementPage() {
     startTransition(async () => {
       try {
         await cancelMembershipSubscription(subscriptionId);
-        // Reload memberships
-        const userId = user?.id;
-        if (!userId) return;
-
-        const all = await getPatientMemberships(userId);
-        const active = await getPatientActiveMembership(userId);
-        setActiveMembership(active);
-        setAllMemberships(all);
+        await reload();
       } catch (error) {
         console.error("Failed to cancel membership:", error);
       }
@@ -99,14 +92,7 @@ export default function MembershipManagementPage() {
     startTransition(async () => {
       try {
         await renewMembershipSubscription(subscriptionId);
-        // Reload memberships
-        const userId = user?.id;
-        if (!userId) return;
-
-        const all = await getPatientMemberships(userId);
-        const active = await getPatientActiveMembership(userId);
-        setActiveMembership(active);
-        setAllMemberships(all);
+        await reload();
       } catch (error) {
         console.error("Failed to renew membership:", error);
       }
@@ -120,11 +106,7 @@ export default function MembershipManagementPage() {
     startTransition(async () => {
       try {
         await updateAutoRenew(subscriptionId, !currentValue);
-        // Reload memberships
-        const all = await getPatientMemberships(user!.id);
-        const active = await getPatientActiveMembership(user!.id);
-        setActiveMembership(active);
-        setAllMemberships(all);
+        await reload();
       } catch (error) {
         console.error("Failed to update auto-renew:", error);
       }

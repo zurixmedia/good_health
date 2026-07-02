@@ -77,11 +77,9 @@ export default function MembershipCheckoutPage() {
 
     startTransition(async () => {
       try {
-        // Get patient profile ID - in a real app, you'd have this from user context
-        // For now, we'll use a placeholder
-        const patientId = user.id;
-
-        await createMembershipSubscription(patientId, planId, period);
+        // The server action resolves the PatientProfile.id from the session;
+        // never pass a client-supplied patient id.
+        await createMembershipSubscription(planId, period);
         router.push("/patient/membership/success");
       } catch (err) {
         setError("Failed to create subscription");

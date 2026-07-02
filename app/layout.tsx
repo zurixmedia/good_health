@@ -17,8 +17,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GoodHealth",
-  description: "GoodHealth healthcare memberships, appointments, and consultations",
+  title: {
+    default: "GoodHealth",
+    template: "%s | GoodHealth",
+  },
+  description: "Trusted healthcare platform — book appointments with verified doctors, manage memberships, and access virtual consultations.",
 };
 
 export default function RootLayout({

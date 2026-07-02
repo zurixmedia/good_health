@@ -1,7 +1,12 @@
 "use server";
 
-import { db } from "@/lib/db";
+import "server-only";
+
 import { revalidatePath } from "next/cache";
+
+import { db } from "@/lib/db";
+import { requireRole } from "@/lib/auth/guards";
+import { UserRole } from "@/app/generated/prisma/enums";
 
 type DecimalLike = {
   toNumber(): number;
@@ -85,6 +90,31 @@ function serializeMembershipSubscription(
 }
 
 /**
+ * Resolves the PatientProfile row (id) for the currently-authenticated patient.
+ *
+ * This is the crux of the ID-mismatch fix: `MembershipSubscription.patientId`
+ * is a foreign key to `PatientProfile.id`, NOT to the Clerk user id. The
+ * previous code passed the Clerk id (`user.id` from `useUser()` / `auth()`)
+ * which silently returned empty results on read and would violate the FK
+ * constraint on create. Deriving it server-side also closes the IDOR hole
+ * where a client could pass any patient id.
+ */
+async function requirePatientProfile(): Promise<{ id: string }> {
+  const authUser = await requireRole([UserRole.PATIENT]);
+
+  const profile = await db.patientProfile.findUnique({
+    where: { userId: authUser.id },
+    select: { id: true },
+  });
+
+  if (!profile) {
+    throw new Error("Patient profile not found");
+  }
+
+  return profile;
+}
+
+/**
  * Get all active membership plans
  */
 export async function getMembershipPlans() {
@@ -116,14 +146,15 @@ export async function getMembershipPlanById(planId: string) {
 }
 
 /**
- * Get patient's current active membership
+ * Get the current patient's active membership.
  */
-export async function getPatientActiveMembership(patientId: string) {
+export async function getPatientActiveMembership() {
   try {
+    const patient = await requirePatientProfile();
     const now = new Date();
     const subscription = await db.membershipSubscription.findFirst({
       where: {
-        patientId,
+        patientId: patient.id,
         status: "ACTIVE",
         endDate: { gte: now },
       },
@@ -144,12 +175,13 @@ export async function getPatientActiveMembership(patientId: string) {
 }
 
 /**
- * Get all patient memberships (active, expired, cancelled)
+ * Get the current patient's full membership history (active, expired, cancelled).
  */
-export async function getPatientMemberships(patientId: string) {
+export async function getPatientMemberships() {
   try {
+    const patient = await requirePatientProfile();
     const subscriptions = await db.membershipSubscription.findMany({
-      where: { patientId },
+      where: { patientId: patient.id },
       include: {
         membershipPlan: true,
       },
@@ -169,11 +201,11 @@ export async function getPatientMemberships(patientId: string) {
 }
 
 /**
- * Check if patient has active membership
+ * Whether the current patient has an active membership.
  */
-export async function hasActiveMembership(patientId: string): Promise<boolean> {
+export async function hasActiveMembership(): Promise<boolean> {
   try {
-    const subscription = await getPatientActiveMembership(patientId);
+    const subscription = await getPatientActiveMembership();
     return !!subscription;
   } catch {
     return false;
@@ -181,14 +213,15 @@ export async function hasActiveMembership(patientId: string): Promise<boolean> {
 }
 
 /**
- * Create a new membership subscription
+ * Create a new membership subscription for the current patient.
  */
 export async function createMembershipSubscription(
-  patientId: string,
   planId: string,
   billingPeriod: "monthly" | "yearly" = "monthly",
 ) {
   try {
+    const patient = await requirePatientProfile();
+
     const plan = await getMembershipPlanById(planId);
     if (!plan) {
       throw new Error("Membership plan not found");
@@ -205,7 +238,7 @@ export async function createMembershipSubscription(
 
     const subscription = await db.membershipSubscription.create({
       data: {
-        patientId,
+        patientId: patient.id,
         membershipPlanId: planId,
         startDate,
         endDate,
@@ -230,10 +263,32 @@ export async function createMembershipSubscription(
 }
 
 /**
- * Cancel membership subscription
+ * Guard helper: confirms a subscription belongs to the current patient before
+ * any mutation. Throws if ownership check fails (which renders a 404 via the
+ * guard's `notFound()`).
+ */
+async function requireOwnedSubscription(subscriptionId: string) {
+  const patient = await requirePatientProfile();
+
+  const subscription = await db.membershipSubscription.findUnique({
+    where: { id: subscriptionId },
+    select: { patientId: true },
+  });
+
+  if (!subscription || subscription.patientId !== patient.id) {
+    throw new Error("Subscription not found");
+  }
+
+  return subscriptionId;
+}
+
+/**
+ * Cancel the current patient's membership subscription.
  */
 export async function cancelMembershipSubscription(subscriptionId: string) {
   try {
+    await requireOwnedSubscription(subscriptionId);
+
     const subscription = await db.membershipSubscription.update({
       where: { id: subscriptionId },
       data: {
@@ -258,10 +313,12 @@ export async function cancelMembershipSubscription(subscriptionId: string) {
 }
 
 /**
- * Renew membership subscription
+ * Renew the current patient's membership subscription.
  */
 export async function renewMembershipSubscription(subscriptionId: string) {
   try {
+    await requireOwnedSubscription(subscriptionId);
+
     const subscription = await db.membershipSubscription.findUnique({
       where: { id: subscriptionId },
     });
@@ -306,13 +363,15 @@ export async function renewMembershipSubscription(subscriptionId: string) {
 }
 
 /**
- * Update membership auto-renew setting
+ * Update the auto-renew setting on the current patient's subscription.
  */
 export async function updateAutoRenew(
   subscriptionId: string,
   autoRenew: boolean,
 ) {
   try {
+    await requireOwnedSubscription(subscriptionId);
+
     const subscription = await db.membershipSubscription.update({
       where: { id: subscriptionId },
       data: { autoRenew },
@@ -333,7 +392,7 @@ export async function updateAutoRenew(
 }
 
 /**
- * Get membership statistics
+ * Get membership statistics (admin).
  */
 export async function getMembershipStats() {
   try {

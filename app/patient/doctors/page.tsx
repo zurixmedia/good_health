@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Layout,
@@ -35,197 +35,24 @@ import {
 } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getAvailableDoctors, type AvailableDoctor } from "../appointments/actions";
 
-type Doctor = {
-  id: string;
-  name: string;
-  specialty: string;
-  hospital: string;
-  location: string;
-  rating: number;
-  reviews: number;
-  yearsExperience: number;
-  nextAvailable: string;
-  responseTime: string;
-  consultationFee: number;
-  languages: string[];
-  tags: string[];
-  verified: boolean;
-  featured?: boolean;
-  inNetwork: boolean;
-  acceptsVirtual: boolean;
-  availability: "Today" | "This week" | "Next week";
-  matchScore: number;
-  bio: string;
-};
-
-const doctors: Doctor[] = [
-  {
-    id: "dr-amara-bello",
-    name: "Dr. Amara Bello",
-    specialty: "Cardiology",
-    hospital: "Riverside Heart Center",
-    location: "Berlin Mitte",
-    rating: 4.9,
-    reviews: 184,
-    yearsExperience: 14,
-    nextAvailable: "Today, 4:30 PM",
-    responseTime: "12 min avg",
-    consultationFee: 180,
-    languages: ["English", "German", "French"],
-    tags: ["Heart health", "Preventive care", "Virtual consults"],
-    verified: true,
-    featured: true,
-    inNetwork: true,
-    acceptsVirtual: true,
-    availability: "Today",
-    matchScore: 98,
-    bio:
-      "Focused on hypertension, arrhythmia follow-up, and patient-friendly preventive care plans.",
-  },
-  {
-    id: "dr-noah-stein",
-    name: "Dr. Noah Stein",
-    specialty: "Orthopedics",
-    hospital: "Northside Sports Clinic",
-    location: "Kreuzberg",
-    rating: 4.8,
-    reviews: 132,
-    yearsExperience: 11,
-    nextAvailable: "Tomorrow, 9:00 AM",
-    responseTime: "18 min avg",
-    consultationFee: 160,
-    languages: ["English", "German"],
-    tags: ["Sports injuries", "Joint pain", "Rehab"],
-    verified: true,
-    inNetwork: true,
-    acceptsVirtual: false,
-    availability: "Today",
-    matchScore: 95,
-    bio:
-      "Helps active patients recover from injuries and build practical rehab plans that fit real schedules.",
-  },
-  {
-    id: "dr-lina-park",
-    name: "Dr. Lina Park",
-    specialty: "Dermatology",
-    hospital: "Skin & Wellness Studio",
-    location: "Charlottenburg",
-    rating: 4.9,
-    reviews: 216,
-    yearsExperience: 10,
-    nextAvailable: "Thursday, 11:15 AM",
-    responseTime: "9 min avg",
-    consultationFee: 140,
-    languages: ["English", "German", "Korean"],
-    tags: ["Acne", "Allergy testing", "Virtual consults"],
-    verified: true,
-    featured: true,
-    inNetwork: false,
-    acceptsVirtual: true,
-    availability: "This week",
-    matchScore: 91,
-    bio:
-      "Known for quick follow-ups, acne management, and skin screening with clear, plain-language guidance.",
-  },
-  {
-    id: "dr-ibrahim-adele",
-    name: "Dr. Ibrahim Adele",
-    specialty: "Family Medicine",
-    hospital: "GoodHealth Primary Care",
-    location: "Prenzlauer Berg",
-    rating: 4.7,
-    reviews: 98,
-    yearsExperience: 17,
-    nextAvailable: "Today, 6:10 PM",
-    responseTime: "7 min avg",
-    consultationFee: 110,
-    languages: ["English", "German", "Arabic"],
-    tags: ["Annual checkups", "Chronic care", "Pediatrics"],
-    verified: true,
-    inNetwork: true,
-    acceptsVirtual: true,
-    availability: "Today",
-    matchScore: 96,
-    bio:
-      "A steady first stop for families who want continuity, medication review, and fast access to care.",
-  },
-  {
-    id: "dr-sofia-mendes",
-    name: "Dr. Sofia Mendes",
-    specialty: "Mental Health",
-    hospital: "Calm Path Clinic",
-    location: "Friedrichshain",
-    rating: 4.9,
-    reviews: 147,
-    yearsExperience: 9,
-    nextAvailable: "Friday, 1:45 PM",
-    responseTime: "15 min avg",
-    consultationFee: 170,
-    languages: ["English", "German", "Spanish"],
-    tags: ["Anxiety", "Burnout", "Video therapy"],
-    verified: true,
-    inNetwork: true,
-    acceptsVirtual: true,
-    availability: "This week",
-    matchScore: 93,
-    bio:
-      "Supports patients navigating stress, burnout, and long-term therapy with a calm, structured approach.",
-  },
-  {
-    id: "dr-kofi-badu",
-    name: "Dr. Kofi Badu",
-    specialty: "Pediatrics",
-    hospital: "Little Steps Pediatrics",
-    location: "Schoneberg",
-    rating: 4.8,
-    reviews: 121,
-    yearsExperience: 13,
-    nextAvailable: "Monday, 8:40 AM",
-    responseTime: "11 min avg",
-    consultationFee: 125,
-    languages: ["English", "German", "Swahili"],
-    tags: ["Newborn care", "Vaccines", "School forms"],
-    verified: true,
-    inNetwork: false,
-    acceptsVirtual: true,
-    availability: "Next week",
-    matchScore: 89,
-    bio:
-      "A family favorite for well-child visits, vaccinations, and practical guidance for busy parents.",
-  },
-];
-
-const specialties = [
-  "All specialties",
-  "Cardiology",
-  "Orthopedics",
-  "Dermatology",
-  "Family Medicine",
-  "Mental Health",
-  "Pediatrics",
-] as const;
-
-const availabilityFilters = ["Any time", "Today", "This week"] as const;
-const networkFilters = ["Any network", "In network", "Self pay"] as const;
+const availabilityFilters = ["Any time", "Virtual available"] as const;
+const networkFilters = ["Any network", "Virtual", "In-person only"] as const;
 const sortOptions = [
   "Recommended",
-  "Top rated",
-  "Soonest available",
   "Lowest fee",
+  "Most experienced",
 ] as const;
 
-function matchesSearch(doctor: Doctor, query: string) {
+function matchesSearch(doctor: AvailableDoctor, query: string) {
   if (!query) return true;
-
   const haystack = [
     doctor.name,
-    doctor.specialty,
-    doctor.hospital,
-    doctor.location,
-    doctor.bio,
-    ...doctor.tags,
-    ...doctor.languages,
+    doctor.specialty ?? "",
+    doctor.hospitalName ?? "",
+    doctor.location ?? "",
+    doctor.bio ?? "",
   ]
     .join(" ")
     .toLowerCase();
@@ -234,16 +61,54 @@ function matchesSearch(doctor: Doctor, query: string) {
 }
 
 function DoctorDiscoveryPage() {
+  const [doctors, setDoctors] = useState<AvailableDoctor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [query, setQuery] = useState("");
-  const [specialty, setSpecialty] =
-    useState<(typeof specialties)[number]>("All specialties");
   const [availability, setAvailability] =
     useState<(typeof availabilityFilters)[number]>("Any time");
   const [network, setNetwork] =
     useState<(typeof networkFilters)[number]>("Any network");
   const [sort, setSort] = useState<(typeof sortOptions)[number]>("Recommended");
-  const [savedDoctors, setSavedDoctors] = useState<Record<string, boolean>>({});
-  const [selectedDoctorId, setSelectedDoctorId] = useState(doctors[0]?.id ?? "");
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await getAvailableDoctors();
+        if (!cancelled) {
+          setDoctors(data);
+          setSelectedDoctorId(data[0]?.id ?? "");
+        }
+      } catch (error) {
+        console.error("Failed to load doctors:", error);
+        if (!cancelled) setLoadError("Failed to load doctors.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const specialties = useMemo(() => {
+    const set = new Set<string>();
+    doctors.forEach((d) => {
+      if (d.specialty) set.add(d.specialty);
+    });
+    return ["All specialties", ...Array.from(set).sort()];
+  }, [doctors]);
+
+  const [specialty, setSpecialty] = useState<string>("All specialties");
+  // Keep specialty selection valid as the list loads.
+  useEffect(() => {
+    if (specialty !== "All specialties" && !specialties.includes(specialty)) {
+      setSpecialty("All specialties");
+    }
+  }, [specialties, specialty]);
 
   const filteredDoctors = doctors
     .filter((doctor) => matchesSearch(doctor, query))
@@ -252,38 +117,29 @@ function DoctorDiscoveryPage() {
     )
     .filter((doctor) => {
       if (availability === "Any time") return true;
-      if (availability === "Today") return doctor.availability === "Today";
-      return doctor.availability !== "Next week";
+      return doctor.supportsVirtualConsultation;
     })
     .filter((doctor) => {
       if (network === "Any network") return true;
-      return network === "In network" ? doctor.inNetwork : !doctor.inNetwork;
+      if (network === "Virtual") return doctor.supportsVirtualConsultation;
+      return !doctor.supportsVirtualConsultation;
     })
     .sort((a, b) => {
-      if (sort === "Top rated") return b.rating - a.rating;
-      if (sort === "Soonest available") {
-        const order = { Today: 0, "This week": 1, "Next week": 2 } as const;
-        return order[a.availability] - order[b.availability];
-      }
       if (sort === "Lowest fee") return a.consultationFee - b.consultationFee;
-
-      if (a.featured && !b.featured) return -1;
-      if (!a.featured && b.featured) return 1;
-      if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore;
-      return b.rating - a.rating;
+      if (sort === "Most experienced") {
+        return (b.yearsOfExperience ?? 0) - (a.yearsOfExperience ?? 0);
+      }
+      // Recommended: verified doctors by experience, then fee.
+      return (
+        (b.yearsOfExperience ?? 0) - (a.yearsOfExperience ?? 0) ||
+        a.consultationFee - b.consultationFee
+      );
     });
 
   const selectedDoctor =
     filteredDoctors.find((doctor) => doctor.id === selectedDoctorId) ??
     filteredDoctors[0] ??
     null;
-
-  const toggleSaved = (doctorId: string) => {
-    setSavedDoctors((current) => ({
-      ...current,
-      [doctorId]: !current[doctorId],
-    }));
-  };
 
   return (
     <Layout>
@@ -311,9 +167,6 @@ function DoctorDiscoveryPage() {
         <PageContainer maxWidth="2xl" padding="lg" className="space-y-10">
           <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 px-6 py-8 text-white shadow-2xl shadow-slate-950/10 sm:px-8 sm:py-10">
             <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(14,165,233,0.28),transparent_35%,transparent_65%,rgba(34,197,94,0.20))]" />
-            <div className="absolute -right-10 top-0 h-40 w-40 rounded-full bg-cyan-400/20 blur-3xl" />
-            <div className="absolute -bottom-12 left-1/3 h-36 w-36 rounded-full bg-emerald-400/20 blur-3xl" />
-
             <div className="relative grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
               <div className="space-y-6">
                 <Badge variant="info" outlined className="w-fit bg-white/10 text-cyan-50 border-white/20">
@@ -324,18 +177,22 @@ function DoctorDiscoveryPage() {
                     Discover the right doctor for the kind of care you need.
                   </H1>
                   <Body size="lg" className="max-w-2xl text-slate-200">
-                    Search by specialty, availability, language, or insurance
-                    network, then compare the doctors who can help you next.
+                    Search by specialty, availability, or location, then compare
+                    the verified doctors who can help you next.
                   </Body>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <HeroStat label="Verified doctors" value={doctors.length} />
+                  <HeroStat label="Verified doctors" value={loading ? "—" : doctors.length} />
                   <HeroStat
-                    label="Available today"
-                    value={doctors.filter((doctor) => doctor.availability === "Today").length}
+                    label="Virtual care"
+                    value={
+                      loading
+                        ? "—"
+                        : doctors.filter((d) => d.supportsVirtualConsultation).length
+                    }
                   />
-                  <HeroStat label="Avg rating" value="4.8" />
+                  <HeroStat label="Specialties" value={loading ? "—" : specialties.length - 1} />
                 </div>
               </div>
 
@@ -354,28 +211,17 @@ function DoctorDiscoveryPage() {
                     <input
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Cardiology, Berlin Mitte, virtual consults..."
+                      placeholder="Cardiology, hospital name, city…"
                       className="h-12 w-full rounded-xl border border-white/15 bg-slate-900/60 px-4 text-sm text-white placeholder:text-slate-400 outline-none transition focus:border-cyan-300 focus:ring-2 focus:ring-cyan-400/30"
                     />
                   </label>
                   <div className="grid gap-3 sm:grid-cols-3">
                     <select
-                      value={specialty}
-                      onChange={(event) =>
-                        setSpecialty(event.target.value as typeof specialty)
-                      }
-                      className="h-11 rounded-xl border border-white/15 bg-slate-900/60 px-3 text-sm text-white outline-none transition focus:border-cyan-300"
-                    >
-                      {specialties.map((value) => (
-                        <option key={value} value={value} className="text-slate-950">
-                          {value}
-                        </option>
-                      ))}
-                    </select>
-                    <select
                       value={availability}
                       onChange={(event) =>
-                        setAvailability(event.target.value as typeof availability)
+                        setAvailability(
+                          event.target.value as typeof availability,
+                        )
                       }
                       className="h-11 rounded-xl border border-white/15 bg-slate-900/60 px-3 text-sm text-white outline-none transition focus:border-cyan-300"
                     >
@@ -398,59 +244,75 @@ function DoctorDiscoveryPage() {
                         </option>
                       ))}
                     </select>
+                    <select
+                      value={sort}
+                      onChange={(event) => setSort(event.target.value as typeof sort)}
+                      className="h-11 rounded-xl border border-white/15 bg-slate-900/60 px-3 text-sm text-white outline-none transition focus:border-cyan-300"
+                    >
+                      {sortOptions.map((value) => (
+                        <option key={value} value={value} className="text-slate-950">
+                          {value}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </CardBody>
               </Card>
             </div>
           </section>
 
-          <section className="space-y-4">
-            <H2>Browse by specialty</H2>
-            <div className="flex flex-wrap gap-2">
-              {specialties.map((value) => {
-                const active = specialty === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setSpecialty(value)}
-                    className={cn(
-                      "rounded-full border px-4 py-2 text-sm font-medium transition",
-                      active
-                        ? "border-sky-600 bg-sky-600 text-white shadow-sm"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
-                    )}
-                  >
-                    {value}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+          {loadError && (
+            <Alert variant="error">
+              <AlertTitle>Something went wrong</AlertTitle>
+              <AlertDescription>{loadError}</AlertDescription>
+            </Alert>
+          )}
 
-          <Alert variant="info">
-            <AlertTitle>Care coverage</AlertTitle>
-            <AlertDescription>
-              In-network doctors are highlighted first when you keep the
-              recommended sort selected. You can still review every available
-              specialist if you want a broader search.
-            </AlertDescription>
-          </Alert>
+          {specialties.length > 1 && (
+            <section className="space-y-4">
+              <H2>Browse by specialty</H2>
+              <div className="flex flex-wrap gap-2">
+                {specialties.map((value) => {
+                  const active = specialty === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setSpecialty(value)}
+                      className={cn(
+                        "rounded-full border px-4 py-2 text-sm font-medium transition",
+                        active
+                          ? "border-sky-600 bg-sky-600 text-white shadow-sm"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50",
+                      )}
+                    >
+                      {value}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           <Grid columns={4} gap="md">
-            <Metric label="Matched doctors" value={filteredDoctors.length} />
+            <Metric label="Matched doctors" value={loading ? "—" : filteredDoctors.length} />
             <Metric
               label="Virtual available"
-              value={filteredDoctors.filter((doctor) => doctor.acceptsVirtual).length}
+              value={
+                loading
+                  ? "—"
+                  : filteredDoctors.filter((d) => d.supportsVirtualConsultation).length
+              }
             />
             <Metric
-              label="In network"
-              value={filteredDoctors.filter((doctor) => doctor.inNetwork).length}
+              label="In person"
+              value={
+                loading
+                  ? "—"
+                  : filteredDoctors.filter((d) => !d.supportsVirtualConsultation).length
+              }
             />
-            <Metric
-              label="Saved today"
-              value={Object.values(savedDoctors).filter(Boolean).length}
-            />
+            <Metric label="Specialty" value={specialty === "All specialties" ? "All" : specialty} />
           </Grid>
 
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.85fr)]">
@@ -459,29 +321,21 @@ function DoctorDiscoveryPage() {
                 <div>
                   <H2>Available doctors</H2>
                   <Body muted>
-                    Compare bios, availability, and consultation style before
-                    choosing a profile.
+                    Compare bios and consultation style before choosing a profile.
                   </Body>
                 </div>
-                <select
-                  value={sort}
-                  onChange={(event) => setSort(event.target.value as typeof sort)}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-sky-500"
-                >
-                  {sortOptions.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <div className="space-y-4">
-                {filteredDoctors.length > 0 ? (
+                {loading ? (
+                  <Card>
+                    <CardBody>
+                      <Body muted>Loading verified doctors…</Body>
+                    </CardBody>
+                  </Card>
+                ) : filteredDoctors.length > 0 ? (
                   filteredDoctors.map((doctor) => {
-                    const saved = Boolean(savedDoctors[doctor.id]);
                     const active = selectedDoctor?.id === doctor.id;
-
                     return (
                       <Card
                         key={doctor.id}
@@ -497,6 +351,7 @@ function DoctorDiscoveryPage() {
                             <div className="flex gap-4">
                               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-emerald-500 text-lg font-bold text-white shadow-sm">
                                 {doctor.name
+                                  .replace("Dr. ", "")
                                   .split(" ")
                                   .map((part) => part[0])
                                   .join("")}
@@ -504,101 +359,68 @@ function DoctorDiscoveryPage() {
                               <div className="space-y-1">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <CardTitle size="lg">{doctor.name}</CardTitle>
-                                  {doctor.verified && (
-                                    <Badge variant="success" size="sm">
-                                      Verified
-                                    </Badge>
-                                  )}
-                                  {doctor.featured && (
-                                    <Badge variant="primary" size="sm">
-                                      Featured
-                                    </Badge>
-                                  )}
+                                  <Badge variant="success" size="sm">
+                                    Verified
+                                  </Badge>
                                 </div>
                                 <Body size="sm" muted>
-                                  {doctor.specialty} at {doctor.hospital}
+                                  {doctor.specialty ?? "General"}
+                                  {doctor.hospitalName ? ` at ${doctor.hospitalName}` : ""}
                                 </Body>
-                                <Text muted>{doctor.location}</Text>
+                                {doctor.location && <Text muted>{doctor.location}</Text>}
                               </div>
                             </div>
 
                             <div className="flex flex-wrap gap-2 sm:justify-end">
-                              <Badge variant="default" outlined>
-                                {doctor.availability}
-                              </Badge>
-                              <Badge variant={doctor.inNetwork ? "success" : "warning"}>
-                                {doctor.inNetwork ? "In network" : "Self pay"}
+                              <Badge variant={doctor.supportsVirtualConsultation ? "success" : "warning"}>
+                                {doctor.supportsVirtualConsultation ? "Virtual ready" : "In-person"}
                               </Badge>
                             </div>
                           </div>
 
-                          <Body size="sm" muted>
-                            {doctor.bio}
-                          </Body>
+                          {doctor.bio && (
+                            <Body size="sm" muted>
+                              {doctor.bio}
+                            </Body>
+                          )}
 
-                          <div className="flex flex-wrap gap-2">
-                            {doctor.tags.map((tag) => (
-                              <Badge key={tag} variant="info" size="sm" outlined>
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-
-                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                            <InfoBlock label="Rating" value={`${doctor.rating} (${doctor.reviews})`} />
-                            <InfoBlock label="Experience" value={`${doctor.yearsExperience} years`} />
-                            <InfoBlock label="Next available" value={doctor.nextAvailable} />
+                          <div className="grid gap-3 sm:grid-cols-3">
+                            <InfoBlock
+                              label="Experience"
+                              value={
+                                doctor.yearsOfExperience
+                                  ? `${doctor.yearsOfExperience} years`
+                                  : "—"
+                              }
+                            />
                             <InfoBlock
                               label="Fee"
-                              value={`$${doctor.consultationFee} consult`}
+                              value={`₦${doctor.consultationFee}`}
                             />
+                            <InfoBlock label="Location" value={doctor.location ?? "—"} />
                           </div>
                         </CardBody>
 
                         <CardFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex flex-wrap gap-2">
-                            <Badge variant="default" outlined>
-                              {doctor.acceptsVirtual ? "Virtual care" : "In-person only"}
-                            </Badge>
-                            <Badge variant="secondary" outlined>
-                              {doctor.responseTime}
-                            </Badge>
-                            <Badge variant="primary" outlined>
-                              Match {doctor.matchScore}%
-                            </Badge>
-                          </div>
-
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                toggleSaved(doctor.id);
-                              }}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedDoctorId(doctor.id);
+                            }}
+                          >
+                            Review profile
+                          </Button>
+                          <Button asChild size="sm">
+                            <Link
+                              href={`/patient/appointments?doctor=${doctor.id}&type=${doctor.supportsVirtualConsultation ? "video" : "in-person"}`}
+                              onClick={(event) => event.stopPropagation()}
                             >
-                              {saved ? "Saved" : "Save"}
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setSelectedDoctorId(doctor.id);
-                              }}
-                            >
-                              Review profile
-                            </Button>
-                            <Button asChild size="sm">
-                              <Link
-                                href={`/patient/appointments?doctor=${doctor.id}&type=${doctor.acceptsVirtual ? "video" : "in-person"}`}
-                                onClick={(event) => event.stopPropagation()}
-                              >
-                                Book visit
-                              </Link>
-                            </Button>
-                          </div>
+                              Book visit
+                            </Link>
+                          </Button>
                         </CardFooter>
                       </Card>
                     );
@@ -630,18 +452,7 @@ function DoctorDiscoveryPage() {
             <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
               <Card className="border-slate-200 bg-white shadow-sm">
                 <CardHeader>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <CardTitle size="lg">Selected doctor</CardTitle>
-                      <Body size="sm" muted className="mt-1">
-                        A quick snapshot of the profile you are currently
-                        exploring.
-                      </Body>
-                    </div>
-                    <Badge variant="info" outlined>
-                      Live preview
-                    </Badge>
-                  </div>
+                  <CardTitle size="lg">Selected doctor</CardTitle>
                 </CardHeader>
                 <CardBody>
                   {selectedDoctor ? (
@@ -649,6 +460,7 @@ function DoctorDiscoveryPage() {
                       <div className="flex items-start gap-4">
                         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-950 to-sky-700 text-lg font-bold text-white">
                           {selectedDoctor.name
+                            .replace("Dr. ", "")
                             .split(" ")
                             .map((part) => part[0])
                             .join("")}
@@ -656,73 +468,39 @@ function DoctorDiscoveryPage() {
                         <div className="space-y-1">
                           <H3>{selectedDoctor.name}</H3>
                           <Body size="sm" muted>
-                            {selectedDoctor.specialty}
+                            {selectedDoctor.specialty ?? "General"}
                           </Body>
-                          <Text muted>{selectedDoctor.hospital}</Text>
+                          {selectedDoctor.hospitalName && (
+                            <Text muted>{selectedDoctor.hospitalName}</Text>
+                          )}
                         </div>
                       </div>
 
                       <div className="grid gap-3">
-                        <InfoBlock label="Location" value={selectedDoctor.location} />
-                        <InfoBlock label="Availability" value={selectedDoctor.nextAvailable} />
+                        <InfoBlock label="Location" value={selectedDoctor.location ?? "—"} />
                         <InfoBlock
                           label="Consult fee"
-                          value={`$${selectedDoctor.consultationFee}`}
+                          value={`₦${selectedDoctor.consultationFee}`}
                         />
                         <InfoBlock
-                          label="Response time"
-                          value={selectedDoctor.responseTime}
+                          label="Experience"
+                          value={
+                            selectedDoctor.yearsOfExperience
+                              ? `${selectedDoctor.yearsOfExperience} years`
+                              : "—"
+                          }
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <Text className="font-semibold text-gray-900">
-                          Languages
-                        </Text>
-                        <div className="flex flex-wrap gap-2">
-                          {selectedDoctor.languages.map((language) => (
-                            <Badge key={language} variant="default" outlined size="sm">
-                              {language}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
+                      {selectedDoctor.bio && (
+                        <Body size="sm" muted>
+                          {selectedDoctor.bio}
+                        </Body>
+                      )}
 
-                      <div className="space-y-2">
-                        <Text className="font-semibold text-gray-900">
-                          Focus areas
-                        </Text>
-                        <div className="flex flex-wrap gap-2">
-                          {selectedDoctor.tags.map((tag) => (
-                            <Badge key={tag} variant="primary" size="sm">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-
-                      <Alert variant="info">
-                        <AlertTitle>Match score {selectedDoctor.matchScore}%</AlertTitle>
-                        <AlertDescription>
-                          This profile ranks highly based on your current search
-                          filters and recommended sort order.
-                        </AlertDescription>
-                      </Alert>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <Button asChild variant="outline">
-                          <Link href="/patient/membership">Check coverage</Link>
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => toggleSaved(selectedDoctor.id)}
-                        >
-                          {savedDoctors[selectedDoctor.id] ? "Unsave" : "Save"}
-                        </Button>
-                      </div>
                       <Button asChild className="w-full">
                         <Link
-                          href={`/patient/appointments?doctor=${selectedDoctor.id}&type=${selectedDoctor.acceptsVirtual ? "video" : "in-person"}`}
+                          href={`/patient/appointments?doctor=${selectedDoctor.id}&type=${selectedDoctor.supportsVirtualConsultation ? "video" : "in-person"}`}
                         >
                           Book this doctor
                         </Link>
@@ -734,25 +512,6 @@ function DoctorDiscoveryPage() {
                       description="Pick a profile from the results list to inspect it here."
                     />
                   )}
-                </CardBody>
-              </Card>
-
-              <Card className="border-slate-200 bg-gradient-to-br from-sky-50 to-emerald-50">
-                <CardBody className="space-y-4">
-                  <div>
-                    <Badge variant="success" outlined>
-                      Next step
-                    </Badge>
-                    <H3 className="mt-3">Need a membership before booking?</H3>
-                    <Body size="sm" muted className="mt-2">
-                      Some doctors are in network, and others are self pay. If
-                      you want access to the membership benefits, review the
-                      available plans next.
-                    </Body>
-                  </div>
-                  <Button asChild className="w-full">
-                    <Link href="/patient/membership">Browse membership plans</Link>
-                  </Button>
                 </CardBody>
               </Card>
             </aside>

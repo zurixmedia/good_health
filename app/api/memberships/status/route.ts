@@ -3,23 +3,19 @@ import {
   getPatientActiveMembership,
   hasActiveMembership,
 } from "@/actions/memberships";
-import { auth } from "@clerk/nextjs/server";
 
 /**
  * GET /api/memberships/status
- * Get current user's membership status
+ * Get the current patient's membership status.
+ *
+ * Identity is resolved inside the actions (from the Clerk session →
+ * PatientProfile.id), so no client-supplied id is trusted here.
  */
 export async function GET() {
   try {
-    const { userId } = await auth();
-
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const hasActive = await hasActiveMembership(userId);
+    const hasActive = await hasActiveMembership();
     const activeMembership = hasActive
-      ? await getPatientActiveMembership(userId)
+      ? await getPatientActiveMembership()
       : null;
 
     return NextResponse.json({
