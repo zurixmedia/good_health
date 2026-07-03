@@ -18,9 +18,9 @@ export default async function PatientDashboardPage() {
     <DashboardShell user={data.user}>
       {/* Welcome heading */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-[#1a1a1a]">
+        <h1 className="text-3xl font-bold text-[#1a1a1a] font-display">
           Welcome,{" "}
-          <span className="font-extrabold">{data.user.firstName}</span>{" "}
+          <span className="font-extrabold font-display">{data.user.firstName}</span>{" "}
           <span aria-hidden>🤩</span>
         </h1>
       </div>
@@ -33,7 +33,7 @@ export default async function PatientDashboardPage() {
         <div className="mb-4 flex items-center justify-between">
           <h2
             id="upcoming-appointments-heading"
-            className="text-xl font-bold text-[#1a1a1a]"
+            className="text-xl font-bold text-[#1a1a1a] font-display"
           >
             Your Upcoming Appointments
           </h2>
@@ -52,7 +52,7 @@ export default async function PatientDashboardPage() {
       <section className="mt-10" aria-labelledby="notifications-heading">
         <h2
           id="notifications-heading"
-          className="mb-4 text-xl font-bold text-[#1a1a1a]"
+          className="mb-4 text-xl font-bold text-[#1a1a1a] font-display"
         >
           Notifications
         </h2>

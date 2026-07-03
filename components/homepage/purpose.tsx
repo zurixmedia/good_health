@@ -28,7 +28,7 @@ export function Purpose() {
             <div>
               <h2
                 id="purpose-heading"
-                className="text-3xl sm:text-4xl font-extrabold text-slate-950"
+                className="text-3xl sm:text-4xl font-extrabold text-slate-950 font-display"
               >
                 <span className="relative inline-block">
                   Purpo
@@ -40,7 +40,7 @@ export function Purpose() {
                 se
               </h2>
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">
+            <h3 className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight font-display">
               Striving for seamless healthcare access is our priority!
             </h3>
             <p className="text-slate-600 text-base sm:text-lg leading-relaxed">

@@ -68,7 +68,7 @@ export function Coverage() {
         <div className="space-y-4 max-w-3xl mx-auto">
           <h2
             id="coverage-heading"
-            className="text-3xl sm:text-4xl font-extrabold text-slate-950"
+            className="text-3xl sm:text-4xl font-extrabold text-slate-950 font-display"
           >
             <span className="relative inline-block">
               Complete

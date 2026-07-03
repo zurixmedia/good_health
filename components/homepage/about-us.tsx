@@ -25,7 +25,7 @@ export function AboutUs() {
             <div>
               <h2
                 id="about-heading"
-                className="text-3xl sm:text-4xl font-extrabold text-slate-950"
+                className="text-3xl sm:text-4xl font-extrabold text-slate-950 font-display"
               >
                 <span className="relative inline-block">
                   About
@@ -38,7 +38,7 @@ export function AboutUs() {
               </h2>
             </div>
 
-            <h3 className="text-xl sm:text-2xl font-bold text-slate-900 leading-snug">
+            <h3 className="text-xl sm:text-2xl font-bold text-slate-900 leading-snug font-display">
               We are committed to improving the healthcare experience by providing
               a reliable and efficient platform for booking hospital appointments.
               We ensure that you receive the care you need without hassle.

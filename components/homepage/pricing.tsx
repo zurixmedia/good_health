@@ -56,7 +56,7 @@ export function Pricing() {
         <div className="space-y-4 max-w-2xl mx-auto">
           <h2
             id="pricing-heading"
-            className="text-3xl sm:text-4xl font-extrabold text-slate-950"
+            className="text-3xl sm:text-4xl font-extrabold text-slate-950 font-display"
           >
             <span className="relative inline-block">
               Our
@@ -106,7 +106,7 @@ export function Pricing() {
               {/* Plan Details */}
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
+                  <h3 className="text-xl sm:text-2xl font-bold text-slate-900 font-display">
                     {plan.name}
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-400 mt-1">

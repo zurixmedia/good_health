@@ -37,9 +37,9 @@ export default async function DoctorDashboardPage() {
         <p className="text-sm font-medium text-[#6b6b6b]">
           {formatLongDate(new Date())}
         </p>
-        <h1 className="text-2xl font-bold text-[#1a1a1a] lg:text-3xl">
+        <h1 className="text-2xl font-bold text-[#1a1a1a] lg:text-3xl font-display">
           Welcome back, Dr.{" "}
-          <span className="font-extrabold">{data.user.firstName}</span>{" "}
+          <span className="font-extrabold font-display">{data.user.firstName}</span>{" "}
           <span aria-hidden>🩺</span>
         </h1>
       </div>
@@ -65,7 +65,7 @@ export default async function DoctorDashboardPage() {
         <div className="mb-4 flex items-center justify-between">
           <h2
             id="todays-appointments-heading"
-            className="text-xl font-bold text-[#1a1a1a]"
+            className="text-xl font-bold text-[#1a1a1a] font-display"
           >
             Today&apos;s Appointments
           </h2>
@@ -98,7 +98,7 @@ export default async function DoctorDashboardPage() {
         <div className="mb-4 flex items-center justify-between">
           <h2
             id="consultation-history-heading"
-            className="text-xl font-bold text-[#1a1a1a]"
+            className="text-xl font-bold text-[#1a1a1a] font-display"
           >
             Consultation History
           </h2>

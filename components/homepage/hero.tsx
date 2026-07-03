@@ -25,11 +25,11 @@ export function Hero() {
 
             <h1
               id="hero-heading"
-              className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl tracking-tight text-slate-900 leading-[1.1]"
+              className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl tracking-tight text-slate-900 leading-[1.1] font-display"
             >
-              <span className="text-[#4169E1] font-semibold">Convenient</span>
+              <span className="text-[#4169E1] font-semibold font-display">Convenient</span>
               <br className="hidden sm:block" />
-              <span className="text-slate-900 font-semibold">
+              <span className="text-slate-900 font-semibold font-display">
                 Healthcare at Good Health!
               </span>
             </h1>

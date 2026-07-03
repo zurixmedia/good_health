@@ -40,7 +40,7 @@ export function Testimonials() {
         <div>
           <h2
             id="testimonials-heading"
-            className="text-3xl sm:text-4xl font-extrabold text-slate-950"
+            className="text-3xl sm:text-4xl font-extrabold text-slate-950 font-display"
           >
             <span className="relative inline-block">
               What

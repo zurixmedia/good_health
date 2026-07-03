@@ -61,7 +61,7 @@ export function Header() {
               className="object-cover"
             />
           </div>
-          <span className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+          <span className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 font-display">
             GoodHealth
           </span>
         </Link>
