@@ -334,3 +334,50 @@
 .animate-float-delay {
   animation: float-delay 7s ease-in-out 1s infinite;
 }
+
+/* ── Medical background drift & breathe animations ───────────────── */
+
+@keyframes drift-layer-1 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(15px, -10px, 0) scale(1.04);
+  }
+  66% {
+    transform: translate3d(-10px, 12px, 0) scale(0.96);
+  }
+}
+
+@keyframes drift-layer-2 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(0.97);
+  }
+  40% {
+    transform: translate3d(-12px, 15px, 0) scale(1.03);
+  }
+  75% {
+    transform: translate3d(8px, -8px, 0) scale(0.98);
+  }
+}
+
+@keyframes drift-layer-3 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(18px, 12px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-drift-layer-1 {
+    animation: drift-layer-1 52s ease-in-out infinite;
+  }
+  .animate-drift-layer-2 {
+    animation: drift-layer-2 38s ease-in-out infinite;
+  }
+  .animate-drift-layer-3 {
+    animation: drift-layer-3 26s ease-in-out infinite;
+  }
+}

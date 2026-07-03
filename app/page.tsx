@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AnimatedHealthBackground } from "@/components/background/AnimatedHealthBackground";
 import {
   Header,
   Hero,
@@ -50,7 +51,8 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <main className="min-h-screen w-full bg-[#fbf8ff] text-slate-900 font-sans selection:bg-sky-100 selection:text-[#0ea5e9]">
+    <main className="min-h-screen w-full bg-transparent text-slate-900 font-sans selection:bg-sky-100 selection:text-[#0ea5e9] relative">
+      <AnimatedHealthBackground />
       <Header />
       <Hero />
       <Features />

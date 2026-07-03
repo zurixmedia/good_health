@@ -1,57 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Layout,
-  Header,
-  Main,
-  Footer,
-  PageContainer,
-  Container,
-  Navbar,
-  NavGroup,
-  NavLink,
-} from "@/components/layout";
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-  AppointmentInfo,
-  Badge,
-  Body,
-  Card,
-  CardBody,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-  H1,
-  H2,
-  H3,
-  Text,
-} from "@/components/shared";
-import { Button } from "@/components/ui/button";
-import { formatDate } from "@/lib/utils";
+import { PatientShellClient, type PatientUser } from "@/components/patient/patient-shell-client";
+import { cn, formatDate } from "@/lib/utils";
 import { DailyCallView } from "@/components/consultations/daily-call-view";
 import type { ConsultationSummary } from "../actions";
 
 type Props = {
   consultation: ConsultationSummary;
+  user: PatientUser;
 };
 
 type Phase = "room" | "ended" | "completed";
 
-export function ConsultationRoomClient({ consultation }: Props) {
+export function ConsultationRoomClient({ consultation, user }: Props) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("room");
 
-  const statusVariant =
+  const statusVariantClass =
     consultation.status === "ACTIVE"
-      ? ("success" as const)
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
       : consultation.status === "COMPLETED"
-        ? ("secondary" as const)
-        : ("primary" as const);
+        ? "bg-gray-100 text-gray-700 border-gray-200"
+        : "bg-blue-50 text-blue-700 border-blue-200";
 
   const statusLabel =
     consultation.status === "ACTIVE"
@@ -73,134 +46,104 @@ export function ConsultationRoomClient({ consultation }: Props) {
   };
 
   return (
-    <Layout>
-      <Header>
-        <Navbar
-          logo={
-            <div>
-              <div className="text-xl font-bold text-gray-900">GoodHealth</div>
-              <div className="text-xs uppercase tracking-[0.3em] text-gray-500">
-                Video Room
-              </div>
+    <PatientShellClient user={user} title="Secure Video Room">
+      {/* Header card info */}
+      <div className="mb-8 rounded-2xl border border-[#eeece8] bg-white p-6 space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-lg font-bold text-[#1a1a1a]">{consultation.doctorName}</span>
+              <span className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full border", statusVariantClass)}>
+                {statusLabel}
+              </span>
             </div>
-          }
-        >
-          <NavGroup>
-            <NavLink href="/patient/consultations">Consultations</NavLink>
-            <NavLink href="/patient/appointments">Appointments</NavLink>
-            <NavLink href="/patient/doctors">Doctors</NavLink>
-          </NavGroup>
-        </Navbar>
-      </Header>
+            <p className="text-xs text-[#6b6b6b]">
+              {consultation.specialty ?? "General"} consultation for {consultation.patientName}.
+            </p>
+            <p className="text-xs text-[#9b9b9b]">
+              Scheduled: {formatDate(consultation.appointmentDate, "long")} at {formatDate(consultation.appointmentStartTime, "time")}
+            </p>
+          </div>
 
-      <Main className="bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.12),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(34,197,94,0.10),_transparent_26%),linear-gradient(to_bottom,_#f8fafc,_#ffffff)]">
-        <PageContainer maxWidth="2xl" padding="lg" className="space-y-8">
-          {/* Header */}
-          <section className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.75fr)]">
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <Badge variant={statusVariant}>{statusLabel}</Badge>
-                <Badge variant="info" outlined>
-                  {consultation.meetingProvider}
-                </Badge>
-                <Badge variant="default" outlined>
-                  Appointment {consultation.appointmentId.slice(0, 12)}
-                </Badge>
-              </div>
+          <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+            <span className="text-[9px] font-bold text-[#9b9b9b] border border-[#eeece8] rounded-full px-2 py-0.5 bg-[#faf9f7]">
+              {consultation.meetingProvider}
+            </span>
+          </div>
+        </div>
 
-              <H1>{consultation.doctorName}</H1>
-              <Body size="lg" muted className="max-w-2xl">
-                {consultation.specialty ?? "General"} consultation for{" "}
-                {consultation.patientName}. The room is restricted to the assigned
-                participants only.
-              </Body>
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-4 text-xs">
+          <div className="rounded-xl border border-[#eeece8] bg-[#faf9f7] p-3 text-center">
+            <span className="block text-[9px] font-bold text-[#9b9b9b] uppercase">Appointment</span>
+            <span className="block font-semibold text-[#1a1a1a] mt-0.5">#{consultation.appointmentId.slice(0, 8)}</span>
+          </div>
+          <div className="rounded-xl border border-[#eeece8] bg-[#faf9f7] p-3 text-center">
+            <span className="block text-[9px] font-bold text-[#9b9b9b] uppercase">Format</span>
+            <span className="block font-semibold text-[#1a1a1a] mt-0.5">Video Call</span>
+          </div>
+          <div className="rounded-xl border border-[#eeece8] bg-[#faf9f7] p-3 text-center">
+            <span className="block text-[9px] font-bold text-[#9b9b9b] uppercase">Patient</span>
+            <span className="block font-semibold text-[#1a1a1a] mt-0.5 truncate">{consultation.patientName}</span>
+          </div>
+          <div className="rounded-xl border border-[#eeece8] bg-[#faf9f7] p-3 text-center">
+            <span className="block text-[9px] font-bold text-[#9b9b9b] uppercase">Access</span>
+            <span className="block font-semibold text-[#1a1a1a] mt-0.5">Assigned Only</span>
+          </div>
+        </div>
+      </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
-                <RoomStat
-                  label="Scheduled"
-                  value={`${formatDate(consultation.appointmentDate, "long")} at ${formatDate(consultation.appointmentStartTime, "time")}`}
-                />
-                <RoomStat label="Status" value={statusLabel} />
-                <RoomStat label="Provider" value={consultation.meetingProvider} />
-              </div>
-            </div>
+      {/* Main Grid: Call screen & clinical summary */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.6fr_1fr]">
+        {/* Call screen side */}
+        <div className="space-y-4">
+          <h2 className="text-sm font-bold text-[#1a1a1a]">Secure Call Stream</h2>
 
-            <Card className="border-slate-200 bg-white shadow-sm">
-              <CardHeader>
-                <CardTitle size="lg">Join control</CardTitle>
-                <Body size="sm" muted className="mt-1">
-                  This secure room uses a Daily.co video session.
-                </Body>
-              </CardHeader>
-              <CardBody className="space-y-4">
-                <AppointmentInfo
-                  doctorName={consultation.doctorName}
-                  specialty={consultation.specialty ?? undefined}
-                  date={formatDate(consultation.appointmentDate, "long")}
-                  time={formatDate(consultation.appointmentStartTime, "time")}
-                  type="video"
-                  status={
-                    consultation.status === "ACTIVE"
-                      ? "confirmed"
-                      : consultation.status === "COMPLETED"
-                        ? "completed"
-                        : "pending"
-                  }
-                  location="Secure video room"
-                  notes={consultation.reasonForVisit}
-                />
-
-                <Alert variant="warning">
-                  <AlertTitle>Assigned access only</AlertTitle>
-                  <AlertDescription>
-                    Only the assigned patient and doctor can join this room.
-                  </AlertDescription>
-                </Alert>
-              </CardBody>
-              <CardFooter className="grid gap-3">
-                <Button
-                  className="w-full"
-                  onClick={() => {
-                    const el = document.getElementById("call-view");
-                    el?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                >
-                  Scroll to video room
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link href="/patient/consultations">Back to consultations</Link>
-                </Button>
-              </CardFooter>
-            </Card>
-          </section>
-
-          {/* Call view or ended state */}
-          <section id="call-view">
+          <div className="overflow-hidden rounded-2xl border border-[#eeece8] bg-black aspect-video relative shadow-inner">
             {phase === "completed" ? (
-              <div className="space-y-6">
-                <Alert variant="success">
-                  <AlertTitle>Consultation completed</AlertTitle>
-                  <AlertDescription>
-                    Your doctor has ended the consultation and saved clinical notes.
-                    You can review the summary below.
-                  </AlertDescription>
-                </Alert>
-                <CompletedSummary consultation={consultation} />
+              <div className="absolute inset-0 bg-[#faf9f7] flex flex-col items-center justify-center p-6 text-center space-y-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <h3 className="text-base font-bold text-[#1a1a1a]">Consultation Session Completed</h3>
+                <p className="text-xs text-[#6b6b6b] max-w-sm">
+                  The clinical consultation has ended. Your physician has recorded diagnosis and follow-up directives.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleBack}
+                    className="rounded-full bg-[#2641FF] px-6 py-2 text-xs font-semibold text-white shadow-md shadow-[#2641FF]/10 transition hover:bg-[#1a30e8]"
+                  >
+                    Back to Queue
+                  </button>
+                  <Link
+                    href="/patient/appointments"
+                    className="rounded-full border border-[#eeece8] bg-white px-6 py-2 text-xs font-semibold text-[#6b6b6b] hover:bg-[#f5f5f5] transition"
+                  >
+                    Schedule Follow-up
+                  </Link>
+                </div>
               </div>
             ) : phase === "ended" ? (
-              <div className="space-y-6">
-                <Alert variant="info">
-                  <AlertTitle>You left the consultation</AlertTitle>
-                  <AlertDescription>
-                    You can rejoin the room as long as the consultation is still
-                    active, or return to your consultations list.
-                  </AlertDescription>
-                </Alert>
-                <div className="flex gap-3">
-                  <Button onClick={() => setPhase("room")}>Rejoin room</Button>
-                  <Button variant="outline" onClick={handleBack}>
-                    Back to consultations
-                  </Button>
+              <div className="absolute inset-0 bg-[#faf9f7] flex flex-col items-center justify-center p-6 text-center space-y-4">
+                <h3 className="text-base font-bold text-[#1a1a1a]">You Left the Call</h3>
+                <p className="text-xs text-[#6b6b6b]">
+                  You can rejoin the call as long as the doctor is active in the room.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPhase("room")}
+                    className="rounded-full bg-[#2641FF] px-6 py-2 text-xs font-semibold text-white shadow-md shadow-[#2641FF]/10 transition hover:bg-[#1a30e8]"
+                  >
+                    Rejoin Room
+                  </button>
+                  <button
+                    onClick={handleBack}
+                    className="rounded-full border border-[#eeece8] bg-white px-6 py-2 text-xs font-semibold text-[#6b6b6b] hover:bg-[#f5f5f5] transition"
+                  >
+                    Back to Queue
+                  </button>
                 </div>
               </div>
             ) : (
@@ -211,193 +154,35 @@ export function ConsultationRoomClient({ consultation }: Props) {
                 onLeft={handleLeft}
               />
             )}
-          </section>
-
-          {/* Notes section */}
-          <Card className="border-slate-200 bg-white">
-            <CardHeader>
-              <CardTitle>Consultation notes</CardTitle>
-            </CardHeader>
-            <CardBody className="grid gap-4 md:grid-cols-2">
-              <NotesBlock
-                title="Reason for visit"
-                text={consultation.reasonForVisit}
-              />
-              <NotesBlock
-                title="Diagnosis"
-                text={consultation.diagnosis ?? "No diagnosis recorded yet."}
-              />
-              <NotesBlock
-                title="Recommendations"
-                text={
-                  consultation.recommendations ??
-                  "No recommendations recorded yet."
-                }
-              />
-              <NotesBlock
-                title="Follow-up"
-                text={
-                  consultation.followUpRequired
-                    ? consultation.followUpNotes ?? "Follow-up required."
-                    : "No follow-up needed."
-                }
-              />
-            </CardBody>
-          </Card>
-
-          {/* Sidebar */}
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.8fr)]">
-            <div />
-            <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
-              <Card className="border-slate-200 bg-white shadow-sm">
-                <CardHeader>
-                  <CardTitle size="lg">Visit summary</CardTitle>
-                </CardHeader>
-                <CardBody className="space-y-4">
-                  <div className="grid gap-3">
-                    <SummaryRow label="Doctor" value={consultation.doctorName} />
-                    <SummaryRow
-                      label="Specialty"
-                      value={consultation.specialty ?? "General"}
-                    />
-                    <SummaryRow
-                      label="Date"
-                      value={formatDate(consultation.appointmentDate, "long")}
-                    />
-                    <SummaryRow
-                      label="Time"
-                      value={formatDate(consultation.appointmentStartTime, "time")}
-                    />
-                    <SummaryRow
-                      label="Room"
-                      value={consultation.meetingRoomId ?? "Not provisioned"}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Text className="font-semibold text-gray-900">
-                      Participants
-                    </Text>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="default" outlined size="sm">
-                        {consultation.patientName}
-                      </Badge>
-                      <Badge variant="default" outlined size="sm">
-                        {consultation.doctorName}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardBody>
-              </Card>
-
-              <Card className="border-slate-200 bg-gradient-to-br from-sky-50 to-emerald-50">
-                <CardBody className="space-y-3">
-                  <Badge variant="success" outlined>
-                    Post visit
-                  </Badge>
-                  <H3>Continue care after the call</H3>
-                  <Body size="sm" muted>
-                    If the doctor recommends an in-person follow-up, you can
-                    book the next appointment right away.
-                  </Body>
-                  <Button asChild variant="outline" className="w-full">
-                    <Link href="/patient/appointments">Schedule follow-up</Link>
-                  </Button>
-                </CardBody>
-              </Card>
-
-              <Card className="border-slate-200 bg-white">
-                <CardBody className="space-y-3">
-                  <Badge variant="info" outlined>
-                    Timestamp
-                  </Badge>
-                  <H2>{formatDate(new Date(), "full")}</H2>
-                </CardBody>
-              </Card>
-            </aside>
           </div>
-        </PageContainer>
-      </Main>
-
-      <Footer>
-        <Container className="py-8">
-          <div className="flex flex-col gap-2 text-sm text-white/70 sm:flex-row sm:items-center sm:justify-between">
-            <p>GoodHealth consultation room</p>
-            <p>Only assigned participants can join this session.</p>
-          </div>
-        </Container>
-      </Footer>
-    </Layout>
-  );
-}
-
-/* ── Sub-components ───────────────────────────────────────────────────── */
-
-function CompletedSummary({ consultation }: { consultation: ConsultationSummary }) {
-  return (
-    <Card className="border-slate-200 bg-white">
-      <CardHeader>
-        <CardTitle>Clinical notes from your doctor</CardTitle>
-      </CardHeader>
-      <CardBody className="space-y-4">
-        {consultation.diagnosis && (
-          <div className="space-y-1">
-            <Text className="font-semibold text-gray-900">Diagnosis</Text>
-            <Body muted>{consultation.diagnosis}</Body>
-          </div>
-        )}
-        {consultation.recommendations && (
-          <div className="space-y-1">
-            <Text className="font-semibold text-gray-900">Recommendations</Text>
-            <Body muted>{consultation.recommendations}</Body>
-          </div>
-        )}
-        {consultation.followUpRequired && consultation.followUpNotes && (
-          <div className="space-y-1">
-            <Text className="font-semibold text-gray-900">Follow-up notes</Text>
-            <Body muted>{consultation.followUpNotes}</Body>
-          </div>
-        )}
-        <div className="flex gap-3 pt-2">
-          <Button asChild>
-            <Link href="/patient/consultations">Back to consultations</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/patient/appointments">Schedule follow-up</Link>
-          </Button>
         </div>
-      </CardBody>
-    </Card>
-  );
-}
 
-function RoomStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
-      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-        {label}
+        {/* Notes / Clinical summary side */}
+        <div className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+          <h2 className="text-sm font-bold text-[#1a1a1a]">Consultation Summary</h2>
+
+          <div className="rounded-2xl border border-[#eeece8] bg-white p-5 space-y-4">
+            <div>
+              <span className="text-[10px] font-bold text-[#9b9b9b] uppercase tracking-wide">Reason for Visit</span>
+              <p className="text-xs text-[#1a1a1a] mt-1">{consultation.reasonForVisit}</p>
+            </div>
+            <div className="border-t border-[#f5f5f5] pt-3">
+              <span className="text-[10px] font-bold text-[#9b9b9b] uppercase tracking-wide">Diagnosis</span>
+              <p className="text-xs text-[#6b6b6b] mt-1 italic">{consultation.diagnosis ?? "Waiting for doctor intake notes..."}</p>
+            </div>
+            <div className="border-t border-[#f5f5f5] pt-3">
+              <span className="text-[10px] font-bold text-[#9b9b9b] uppercase tracking-wide">Recommendations</span>
+              <p className="text-xs text-[#6b6b6b] mt-1 italic">{consultation.recommendations ?? "No prescriptions or guidelines loaded."}</p>
+            </div>
+            <div className="border-t border-[#f5f5f5] pt-3">
+              <span className="text-[10px] font-bold text-[#9b9b9b] uppercase tracking-wide">Follow-Up Directive</span>
+              <p className="text-xs text-[#6b6b6b] mt-1">
+                {consultation.followUpRequired ? (consultation.followUpNotes ?? "Follow-up required.") : "No immediate clinical follow-up needed."}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="mt-2 text-sm font-semibold text-slate-950">{value}</div>
-    </div>
-  );
-}
-
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-      <div className="text-sm text-slate-600">{label}</div>
-      <div className="text-sm font-semibold text-slate-950">{value}</div>
-    </div>
-  );
-}
-
-function NotesBlock({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-        {title}
-      </div>
-      <p className="mt-2 text-sm text-slate-700">{text}</p>
-    </div>
+    </PatientShellClient>
   );
 }

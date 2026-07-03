@@ -29,7 +29,7 @@ const features = [
 
 export function Features() {
   return (
-    <section className="bg-white border-y border-slate-100 py-10 lg:py-14" aria-label="Platform features">
+    <section className="bg-transparent border-y border-slate-100 py-10 lg:py-14" aria-label="Platform features">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-10 lg:gap-16 justify-items-center">
           {features.map((feat) => (

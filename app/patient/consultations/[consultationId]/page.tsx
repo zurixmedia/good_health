@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getConsultationForRoom } from "../actions";
+import { getPatientProfileFormData } from "@/app/patient/profile/actions";
 import { ConsultationRoomClient } from "./client";
 
 type Props = {
@@ -8,11 +9,27 @@ type Props = {
 
 export default async function ConsultationRoomPage({ params }: Props) {
   const { consultationId } = await params;
-  const consultation = await getConsultationForRoom(consultationId);
+
+  const [consultation, profileData] = await Promise.all([
+    getConsultationForRoom(consultationId),
+    getPatientProfileFormData(),
+  ]);
 
   if (!consultation) {
     notFound();
   }
 
-  return <ConsultationRoomClient consultation={consultation} />;
+  const shellUser = {
+    firstName: profileData.user.firstName,
+    lastName: profileData.user.lastName,
+    email: profileData.user.email,
+    profileImageUrl: profileData.user.profileImageUrl,
+  };
+
+  return (
+    <ConsultationRoomClient
+      consultation={consultation}
+      user={shellUser}
+    />
+  );
 }

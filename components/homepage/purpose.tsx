@@ -18,7 +18,7 @@ const cards = [
 export function Purpose() {
   return (
     <section
-      className="bg-white py-16 sm:py-20 lg:py-24 border-y border-slate-100"
+      className="bg-transparent py-16 sm:py-20 lg:py-24 border-y border-slate-100"
       aria-labelledby="purpose-heading"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

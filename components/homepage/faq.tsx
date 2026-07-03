@@ -51,7 +51,7 @@ export function FAQ() {
 
   return (
     <section
-      className="bg-white py-16 sm:py-20 lg:py-24 border-t border-slate-100"
+      className="bg-transparent py-16 sm:py-20 lg:py-24 border-t border-slate-100"
       aria-labelledby="faq-heading"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-10 sm:space-y-12">

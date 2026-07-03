@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/guards";
+import { createAuditLog, isSlotAvailable } from "@/lib/db";
 import {
   UserRole,
   DoctorVerificationStatus,
@@ -408,4 +409,313 @@ export async function createAppointment(
     console.error("[createAppointment]", error);
     return { ok: false, error: "Failed to book the appointment. Please try again." };
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Patient appointment list + lifecycle actions                              */
+/* -------------------------------------------------------------------------- */
+
+export type PatientAppointmentItem = {
+  id: string;
+  doctorName: string;
+  specialty: string | null;
+  hospitalName: string;
+  hospitalLocation: string;
+  hospitalPhone: string | null;
+  appointmentDate: Date;
+  appointmentStartTime: Date;
+  appointmentEndTime: Date;
+  appointmentStatus: string;
+  appointmentType: string;
+  reasonForVisit: string;
+  notes: string | null;
+  hasConsultation: boolean;
+};
+
+export type PatientAppointmentsResult = {
+  upcoming: PatientAppointmentItem[];
+  past: PatientAppointmentItem[];
+  cancelled: PatientAppointmentItem[];
+};
+
+const appointmentItemSelect = {
+  id: true,
+  appointmentDate: true,
+  appointmentStartTime: true,
+  appointmentEndTime: true,
+  appointmentStatus: true,
+  appointmentType: true,
+  reasonForVisit: true,
+  notes: true,
+  doctor: {
+    select: {
+      user: { select: { firstName: true, lastName: true } },
+      specialization: { select: { name: true } },
+    },
+  },
+  hospital: {
+    select: { name: true, city: true, state: true, phoneNumber: true },
+  },
+  consultation: { select: { id: true } },
+} as const;
+
+function toPatientItem(
+  apt: any,
+): PatientAppointmentItem {
+  return {
+    id: apt.id,
+    doctorName: `Dr. ${apt.doctor.user.firstName} ${apt.doctor.user.lastName}`,
+    specialty: apt.doctor.specialization?.name ?? null,
+    hospitalName: apt.hospital?.name ?? "Virtual Consultation",
+    hospitalLocation: apt.hospital
+      ? `${apt.hospital.city}, ${apt.hospital.state}`
+      : "Online",
+    hospitalPhone: apt.hospital?.phoneNumber ?? null,
+    appointmentDate: apt.appointmentDate,
+    appointmentStartTime: apt.appointmentStartTime,
+    appointmentEndTime: apt.appointmentEndTime,
+    appointmentStatus: apt.appointmentStatus,
+    appointmentType: apt.appointmentType,
+    reasonForVisit: apt.reasonForVisit,
+    notes: apt.notes,
+    hasConsultation: !!apt.consultation,
+  };
+}
+
+/**
+ * Returns the patient's appointments grouped into upcoming, past, and cancelled
+ * buckets. "Upcoming" = PENDING/CONFIRMED on or after today; "past" =
+ * COMPLETED/NO_SHOW (or any non-cancelled past date); "cancelled" = CANCELLED.
+ */
+export async function getPatientAppointments(): Promise<PatientAppointmentsResult> {
+  const authUser = await requireRole([UserRole.PATIENT]);
+
+  const patient = await prisma.patientProfile.findUnique({
+    where: { userId: authUser.id },
+    select: { id: true },
+  });
+
+  if (!patient) {
+    return { upcoming: [], past: [], cancelled: [] };
+  }
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const [upcoming, past, cancelled] = await Promise.all([
+    prisma.appointment.findMany({
+      where: {
+        patientId: patient.id,
+        appointmentStatus: { in: [AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED] },
+        appointmentDate: { gte: startOfToday },
+      },
+      orderBy: [{ appointmentDate: "asc" }, { appointmentStartTime: "asc" }],
+      select: appointmentItemSelect,
+    }),
+    prisma.appointment.findMany({
+      where: {
+        patientId: patient.id,
+        appointmentStatus: { in: [AppointmentStatus.COMPLETED, AppointmentStatus.NO_SHOW] },
+      },
+      orderBy: [{ appointmentDate: "desc" }, { appointmentStartTime: "desc" }],
+      select: appointmentItemSelect,
+    }),
+    prisma.appointment.findMany({
+      where: {
+        patientId: patient.id,
+        appointmentStatus: AppointmentStatus.CANCELLED,
+      },
+      orderBy: [{ appointmentDate: "desc" }, { appointmentStartTime: "desc" }],
+      select: appointmentItemSelect,
+    }),
+  ]);
+
+  return {
+    upcoming: upcoming.map(toPatientItem),
+    past: past.map(toPatientItem),
+    cancelled: cancelled.map(toPatientItem),
+  };
+}
+
+export type AppointmentActionResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+/**
+ * Cancels an appointment owned by the current patient.
+ *
+ * Only PENDING or CONFIRMED appointments may be cancelled. The cancellation
+ * fires a notification to the assigned doctor and is logged for audit.
+ */
+export async function cancelAppointment(
+  appointmentId: string,
+): Promise<AppointmentActionResult> {
+  const authUser = await requireRole([UserRole.PATIENT]);
+
+  const apt = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    select: {
+      id: true,
+      patientId: true,
+      doctorId: true,
+      doctor: { select: { userId: true } },
+      appointmentStatus: true,
+      appointmentStartTime: true,
+      appointmentType: true,
+    },
+  });
+
+  if (!apt) {
+    return { ok: false, error: "Appointment not found." };
+  }
+
+  // Ownership check: the patient may only act on their own rows.
+  const patient = await prisma.patientProfile.findUnique({
+    where: { userId: authUser.id },
+    select: { id: true },
+  });
+  if (!patient || apt.patientId !== patient.id) {
+    return { ok: false, error: "Appointment not found." };
+  }
+
+  if (
+    apt.appointmentStatus !== AppointmentStatus.PENDING &&
+    apt.appointmentStatus !== AppointmentStatus.CONFIRMED
+  ) {
+    return { ok: false, error: "This appointment can no longer be cancelled." };
+  }
+
+  await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: { appointmentStatus: AppointmentStatus.CANCELLED },
+  });
+
+  await prisma.notification.create({
+    data: {
+      userId: apt.doctor.userId,
+      type: "APPOINTMENT",
+      title: "Appointment cancelled",
+      message: `A patient cancelled their ${apt.appointmentType === AppointmentType.VIRTUAL ? "virtual" : "in-person"} appointment.`,
+    },
+  });
+
+  await createAuditLog({
+    userId: authUser.id,
+    action: "Appointment Cancelled",
+    entityType: "Appointment",
+    entityId: appointmentId,
+    metadata: { doctorId: apt.doctorId },
+  });
+
+  revalidatePath("/patient/appointments");
+  revalidatePath("/patient/dashboard");
+
+  return { ok: true };
+}
+
+const rescheduleSchema = z.object({
+  appointmentId: z.string().min(1),
+  slotIso: z.string().min(1), // new start time (ISO timestamp)
+});
+
+export type RescheduleInput = z.infer<typeof rescheduleSchema>;
+
+/**
+ * Reschedules an appointment to a new time slot.
+ *
+ * Re-uses the double-booking guard to ensure the new slot does not overlap an
+ * existing non-cancelled appointment for the same doctor. Only PENDING or
+ * CONFIRMED appointments may be rescheduled.
+ */
+export async function rescheduleAppointment(
+  raw: RescheduleInput,
+): Promise<AppointmentActionResult> {
+  const parsed = rescheduleSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: "Invalid reschedule details." };
+  }
+
+  const authUser = await requireRole([UserRole.PATIENT]);
+
+  const apt = await prisma.appointment.findUnique({
+    where: { id: parsed.data.appointmentId },
+    select: {
+      id: true,
+      patientId: true,
+      doctorId: true,
+      appointmentStatus: true,
+      appointmentDate: true,
+    },
+  });
+
+  if (!apt) {
+    return { ok: false, error: "Appointment not found." };
+  }
+
+  const patient = await prisma.patientProfile.findUnique({
+    where: { userId: authUser.id },
+    select: { id: true },
+  });
+  if (!patient || apt.patientId !== patient.id) {
+    return { ok: false, error: "Appointment not found." };
+  }
+
+  if (
+    apt.appointmentStatus !== AppointmentStatus.PENDING &&
+    apt.appointmentStatus !== AppointmentStatus.CONFIRMED
+  ) {
+    return { ok: false, error: "This appointment can no longer be rescheduled." };
+  }
+
+  const slotStart = new Date(parsed.data.slotIso);
+  const slotEnd = new Date(slotStart.getTime() + SLOT_LENGTH_MINUTES * 60_000);
+  const appointmentDate = new Date(slotStart);
+  appointmentDate.setHours(0, 0, 0, 0);
+
+  // Double-booking guard, excluding the appointment being moved itself.
+  const available = await isSlotAvailable({
+    doctorId: apt.doctorId,
+    date: appointmentDate,
+    startTime: slotStart,
+    endTime: slotEnd,
+  });
+
+  // isSlotAvailable does not exclude the row we are moving; check overlap with
+  // self explicitly so rescheduling to a time overlapping the original is fine.
+  const overlapsSelf =
+    apt.appointmentDate.getTime() === appointmentDate.getTime() &&
+    slotStart.getTime() < apt.appointmentDate.getTime() + 0 && // placeholder, real check below
+    false;
+
+  if (!available && !overlapsSelf) {
+    // Re-check excluding the current appointment id (cannot be done via helper).
+    const conflict = await prisma.appointment.findFirst({
+      where: {
+        id: { not: apt.id },
+        doctorId: apt.doctorId,
+        appointmentDate,
+        appointmentStatus: { not: AppointmentStatus.CANCELLED },
+        appointmentStartTime: { lt: slotEnd },
+        appointmentEndTime: { gt: slotStart },
+      },
+      select: { id: true },
+    });
+    if (conflict) {
+      return { ok: false, error: "That time slot is already taken." };
+    }
+  }
+
+  await prisma.appointment.update({
+    where: { id: apt.id },
+    data: {
+      appointmentDate,
+      appointmentStartTime: slotStart,
+      appointmentEndTime: slotEnd,
+    },
+  });
+
+  revalidatePath("/patient/appointments");
+  revalidatePath("/patient/dashboard");
+
+  return { ok: true };
 }

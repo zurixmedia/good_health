@@ -15,10 +15,10 @@ type DecimalLike = {
 type MembershipPlanDTO = {
   id: string;
   name: string;
-  description?: string;
+  description: string | null;
   monthlyPrice: number;
-  yearlyPrice?: number;
-  consultationLimit?: number;
+  yearlyPrice: number | null;
+  consultationLimit: number | null;
   supportsVirtualConsultation: boolean;
   isActive: boolean;
   createdAt: Date;
@@ -70,10 +70,10 @@ function serializeMembershipPlan(plan: Awaited<
 >[number]): MembershipPlanDTO {
   return {
     ...plan,
-    description: plan.description ?? undefined,
+    description: plan.description ?? null,
     monthlyPrice: toNumberValue(plan.monthlyPrice) ?? 0,
-    yearlyPrice: toNumberValue(plan.yearlyPrice) ?? undefined,
-    consultationLimit: plan.consultationLimit ?? undefined,
+    yearlyPrice: toNumberValue(plan.yearlyPrice) ?? null,
+    consultationLimit: plan.consultationLimit ?? null,
   };
 }
 
