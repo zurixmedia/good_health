@@ -51,7 +51,7 @@ export function Header() {
           className="flex items-center gap-2.5 group"
           aria-label="GoodHealth home"
         >
-          <div className="relative h-9 w-9 sm:h-10 sm:w-10 rounded-full overflow-hidden ring-2 ring-white shadow-lg transition-transform group-hover:scale-105">
+          <div className="relative h-9 w-9 sm:h-10 sm:w-10 sm:w-[60px] sm:h-[60px] group-hover:scale-105">
             <Image
               src="/logo.png"
               alt="GoodHealth logo"
