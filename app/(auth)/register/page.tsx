@@ -110,54 +110,77 @@ function SignUpForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("[Register] Submit button clicked");
 
-    if (!signUp || !role) return;
+    if (!signUp) {
+      console.error("[Register] signUp object is missing/not loaded");
+      return;
+    }
+    if (!role) {
+      console.error("[Register] role selection is missing");
+      return;
+    }
 
     setError("");
 
     if (password !== confirmPassword) {
+      console.log("[Register] Validation failed: password mismatch");
       setError("Passwords do not match.");
       return;
     }
 
     if (password.length < 8) {
+      console.log("[Register] Validation failed: password too short");
       setError("Password must be at least 8 characters.");
       return;
     }
 
+    console.log("[Register] Form validation passed. Setting loading = true");
     setLoading(true);
 
     try {
+      console.log("[Register] Calling signUp.create() with fields: ", {
+        firstName,
+        lastName,
+        email,
+        role,
+      });
       // Step 1: Create the sign-up with user details
-      const { error: createError } = await signUp.create({
+      const createRes = await signUp.create({
         firstName,
         lastName,
         emailAddress: email,
         password,
         unsafeMetadata: { role },
       });
+      console.log("[Register] signUp.create() response: ", createRes);
 
+      const createError = createRes?.error;
       if (createError) {
+        console.error("[Register] signUp.create() returned error: ", createError);
         setError(isClerkError(createError));
         setLoading(false);
         return;
       }
 
+      console.log("[Register] Calling signUp.verifications.sendEmailCode()");
       // Step 2: Trigger email verification via the v7 verifications API
-      const { error: verifyError } =
-        await signUp.verifications.sendEmailCode();
+      const sendRes = await signUp.verifications.sendEmailCode();
+      console.log("[Register] signUp.verifications.sendEmailCode() response: ", sendRes);
 
+      const verifyError = sendRes?.error;
       if (verifyError) {
+        console.error("[Register] sendEmailCode() returned error: ", verifyError);
         setError(isClerkError(verifyError));
         setLoading(false);
         return;
       }
 
-      // Step 3: Navigate to email verification page
-      router.push(
-        `/verify-email?email=${encodeURIComponent(email)}&role=${role}`
-      );
+      const redirectUrl = `/verify-email?email=${encodeURIComponent(email)}&role=${role}`;
+      console.log("[Register] Registration successful, redirecting to: ", redirectUrl);
+      router.push(redirectUrl);
     } catch (err: unknown) {
+      console.error("[Register] Caught exception in handleSubmit: ", err);
       setError(
         err instanceof Error
           ? err.message
@@ -370,6 +393,9 @@ function SignUpForm() {
             </button>
           </div>
         </div>
+        
+        {/* CAPTCHA Container */}
+        <div id="clerk-captcha" />
 
         {/* Submit */}
         <button

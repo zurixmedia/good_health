@@ -23,38 +23,54 @@ function VerifyEmailForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!signUp) return;
+    console.log("[VerifyEmail] Submit button clicked");
+
+    if (!signUp) {
+      console.error("[VerifyEmail] signUp object is missing/not loaded");
+      return;
+    }
 
     setError("");
+    console.log("[VerifyEmail] Setting loading = true. Code entered: ", code);
     setLoading(true);
 
     try {
+      console.log("[VerifyEmail] Calling signUp.verifications.verifyEmailCode() with code: ", code);
       // Submit the 6-digit code from the user's inbox. On the v7 Future API
       // this resolves the sign-up to status "complete".
-      const { error: verifyError } =
-        await signUp.verifications.verifyEmailCode({ code });
+      const verifyRes = await signUp.verifications.verifyEmailCode({ code });
+      console.log("[VerifyEmail] verifyEmailCode() response: ", verifyRes);
 
+      const verifyError = verifyRes?.error;
       if (verifyError) {
+        console.error("[VerifyEmail] verifyEmailCode() returned error: ", verifyError);
         setError(isClerkError(verifyError));
         setLoading(false);
         return;
       }
 
+      console.log("[VerifyEmail] Current signUp status: ", signUp.status);
       if (signUp.status === "complete") {
+        console.log("[VerifyEmail] Sign-up complete! Calling signUp.finalize()");
         // Convert the completed sign-up into an active session. This is what
         // makes the Clerk session cookie available to the immediate redirect.
-        await signUp.finalize();
+        const finalizeRes = await signUp.finalize();
+        console.log("[VerifyEmail] signUp.finalize() completed: ", finalizeRes);
 
+        console.log("[VerifyEmail] Resolving post-auth redirect path for roleHint: ", roleHint);
         const destination = await resolvePostAuthRedirectPath(roleHint);
+        console.log("[VerifyEmail] Redirecting to destination: ", destination);
         router.push(destination);
         return;
       }
 
+      console.warn("[VerifyEmail] Sign-up status is not complete yet: ", signUp.status);
       setError(
         "Additional verification is required. Please complete it in your dashboard.",
       );
       setLoading(false);
     } catch (err: unknown) {
+      console.error("[VerifyEmail] Caught exception in handleSubmit: ", err);
       setError(
         err instanceof Error
           ? err.message
